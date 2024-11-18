@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime
+import glob
 import logging
 import os
 import subprocess
@@ -77,12 +78,21 @@ def summarize(text):
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe and summarize audio from an FFmpeg-compatible file.")
-    parser.add_argument("input_file", help="Path to text file or FFmpeg-compatible media file (e.g., .mp4, .mkv, .mov)")
+    parser.add_argument("input_file", nargs="?", help="Path to text file or FFmpeg-compatible media file (e.g., .mp4, .mkv, .mov)")
     parser.add_argument("-t", "--transcription-only", action="store_true", help="Only output the transcription text.")
     args = parser.parse_args()
 
     input_file = args.input_file
     transcription_only = args.transcription_only
+
+    # If no input file is specified, select the latest .mp4 file in the current directory
+    if not input_file:
+        mp4_files = sorted(glob.glob("*.mp4"), key=os.path.getmtime, reverse=True)
+        if mp4_files:
+            input_file = mp4_files[0]
+            print(f"No input_file specified. Using the latest .mp4 file: {input_file}")
+        else:
+            raise FileNotFoundError("No .mp4 files found in the current directory.")
 
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
@@ -109,7 +119,6 @@ def main():
     else:
         summary = summarize(text)
         print(f"Summary from chatGPT:\n{summary}\n")
-
 
 if __name__ == '__main__':
     LOG.addHandler(logging.StreamHandler())
