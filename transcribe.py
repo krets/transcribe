@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import datetime
 import glob
 import json
 import logging
 import os
 import subprocess
+from datetime import datetime, timedelta
 
 import dotenv
 import requests
@@ -102,14 +102,15 @@ def get_transcription_for_file(input_file, skip_cache=False):
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe and summarize audio from an FFmpeg-compatible file.")
-    parser.add_argument("input_file", nargs="?", help="Path to text file or FFmpeg-compatible media file (e.g., .mp4, .mkv, .mov)")
+    parser.add_argument("input_file", nargs="?", help="Path to text file, JSON, or FFmpeg-compatible media file (e.g., .mp4, .mkv, .mov)")
     parser.add_argument("-t", "--transcription-only", action="store_true", help="Only output the transcription text.")
     parser.add_argument("-f", "--force", action="store_true", help="Force re-caching transcription")
     parser.add_argument("-p", "--prompt", default="", help="Extra prompt to add to the summary directive.")
     args = parser.parse_args()
 
     input_file = args.input_file
-    transcription_only = args.transcription_only
+    transcription = None
+    text = None
 
     # If no input file is specified, select the latest .mp4 file in the current directory
     if not input_file:
@@ -120,29 +121,35 @@ def main():
         else:
             raise FileNotFoundError("No .mp4 files found in the current directory.")
 
+    base_name = os.path.basename(input_file)
+
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
-            text = f.read(1024)
-            text += f.read()
-            LOG.info("Input file appears to be plaintext.")
+            if input_file.endswith('.json'):
+                transcription = json.load(f)
+                LOG.info("Input file appears to be a JSON file.")
+            else:
+                text = f.read(1024)
+                text += f.read()
+                LOG.info("Input file appears to be plaintext.")
     except UnicodeDecodeError:
         text = None
 
-    if text is None:
+    if text is None and transcription is None:
         transcription = get_transcription_for_file(input_file, skip_cache=args.force)
-        text = ''
-        for seg in transcription['segments']:
-            text += f"[{datetime.timedelta(seconds=seg['start'])}] {seg['text']}\n"
 
-    base_name = os.path.basename(input_file)
-    if base_name.startswith("202") and base_name[3].isdigit() and len(base_name) > 10:
+    if base_name.startswith("20") and base_name[:4].isdigit() and len(base_name) > 10:
+        # OBS saves files with title like: %Y-%m-%d_%H-%M-%S
         assumed_date = ''.join(base_name[:10])
     else:
-        assumed_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        assumed_date = datetime.fromtimestamp(os.path.getmtime(input_file)).strftime('%Y-%m-%d')
 
-    text = f"Date: {assumed_date}\n\n{text}"
+    if transcription:
+        text = f"Filename: {base_name}\nDate: {assumed_date}\n\n"
+        for seg in transcription['segments']:
+            text += f"[{timedelta(seconds=seg['start'])}] {seg['text']}\n"
 
-    if transcription_only:
+    if args.transcription_only:
         print(f"Transcription:\n{text}")
     else:
         summary = summarize(text, args.prompt)
