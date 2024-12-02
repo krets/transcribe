@@ -90,9 +90,10 @@ def get_transcription_for_file(input_file, skip_cache=False):
     dirname = os.path.dirname(input_file)
     base_basename = os.path.splitext(basename)[0]
     cached_transcription = os.path.join(dirname, f".{base_basename}.json")
+    input_mtime = os.path.getmtime(input_file)
     cache_mtime = os.path.getmtime(cached_transcription) if os.path.exists(cached_transcription) else 0
 
-    if skip_cache or (cache_mtime < os.path.getmtime(input_file)):
+    if skip_cache or (cache_mtime < input_mtime):
         audio_file = extract_audio(input_file)
         transcription = transcribe_audio(audio_file)
         LOG.debug("Caching transcription to: %s", cached_transcription)
@@ -109,7 +110,7 @@ def find_input_file():
     mp4_files = sorted(glob.glob("*.mp4"), key=os.path.getmtime, reverse=True)
     if mp4_files:
         input_file = mp4_files[0]
-        print(f"No input_file specified. Using the latest .mp4 file: {input_file}")
+        LOG.info(f"No input_file specified. Using the latest .mp4 file: {input_file}")
     else:
         raise FileNotFoundError("No .mp4 files found in the current directory.")
     return input_file
@@ -124,11 +125,13 @@ def read_file(input_file):
                 transcription = json.load(f)
                 LOG.info("Input file appears to be a JSON file.")
             else:
-                text = f.read(1024)
-                text += f.read()
+                data = f.read(1024)
+                data += f.read()
                 LOG.info("Input file appears to be plaintext.")
+                text = data
     except UnicodeDecodeError:
-        text = None
+        # Binary file, not transcription or text can be extracted
+        pass
     return transcription, text
 
 
