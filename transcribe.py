@@ -17,6 +17,7 @@ OPEN_AI_KEY = os.environ.get('OPENAI_API_KEY')
 OPEN_AI_MODEL = os.environ.get('OPEN_AI_MODEL', 'gpt-4o-mini')
 OPEN_AI_WHISPER_MODEL = os.environ.get('OPEN_AI_MODEL', 'whisper-1')
 
+
 def extract_audio(video_file):
     output_file = os.path.splitext(os.path.basename(video_file))[0] + ".mp3"
     if os.path.exists(output_file):
@@ -29,6 +30,7 @@ def extract_audio(video_file):
     if result.returncode != 0:
         raise ChildProcessError(f"Error running command: {command}\n{result.stderr}")
     return output_file
+
 
 def transcribe_audio(audio_file):
     LOG.info("Transcribing with whisper API")
@@ -49,6 +51,7 @@ def transcribe_audio(audio_file):
     response = requests.post(url, headers=headers, files=files, data=data)
     response.raise_for_status()
     return response.json()
+
 
 def summarize(text, extra_prompt=None):
     LOG.info("Summarizing with GPT")
@@ -104,9 +107,9 @@ def get_transcription_for_file(input_file, skip_cache=False):
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe and summarize audio from an FFmpeg-compatible file.")
-    parser.add_argument("input_file", nargs="?", help="Path to text file, JSON, or FFmpeg-compatible media file (e.g., .mp4, .mkv, .mov)")
-    parser.add_argument("-t", "--transcription-only", action="store_true", help="Only output the transcription text.")
-    parser.add_argument("-f", "--force", action="store_true", help="Force re-caching transcription")
+    parser.add_argument("input_file", nargs="?", help="Path to file (.txt, .json, .mp4, .mkv, .mov)")
+    parser.add_argument("-t", "--transcription-only", action="store_true", help="Only Transcribe.")
+    parser.add_argument("-f", "--force", action="store_true", help="Force re-caching transcription.")
     parser.add_argument("-p", "--prompt", default="", help="Extra prompt to add to the summary directive.")
     args = parser.parse_args()
 
