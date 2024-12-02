@@ -105,29 +105,19 @@ def get_transcription_for_file(input_file, skip_cache=False):
     return transcription
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Transcribe and summarize audio from an FFmpeg-compatible file.")
-    parser.add_argument("input_file", nargs="?", help="Path to file (.txt, .json, .mp4, .mkv, .mov)")
-    parser.add_argument("-t", "--transcription-only", action="store_true", help="Only Transcribe.")
-    parser.add_argument("-f", "--force", action="store_true", help="Force re-caching transcription.")
-    parser.add_argument("-p", "--prompt", default="", help="Extra prompt to add to the summary directive.")
-    args = parser.parse_args()
+def find_input_file():
+    mp4_files = sorted(glob.glob("*.mp4"), key=os.path.getmtime, reverse=True)
+    if mp4_files:
+        input_file = mp4_files[0]
+        print(f"No input_file specified. Using the latest .mp4 file: {input_file}")
+    else:
+        raise FileNotFoundError("No .mp4 files found in the current directory.")
+    return input_file
 
-    input_file = args.input_file
+
+def read_file(input_file):
     transcription = None
     text = None
-
-    # If no input file is specified, select the latest .mp4 file in the current directory
-    if not input_file:
-        mp4_files = sorted(glob.glob("*.mp4"), key=os.path.getmtime, reverse=True)
-        if mp4_files:
-            input_file = mp4_files[0]
-            print(f"No input_file specified. Using the latest .mp4 file: {input_file}")
-        else:
-            raise FileNotFoundError("No .mp4 files found in the current directory.")
-
-    base_name = os.path.basename(input_file)
-
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             if input_file.endswith('.json'):
@@ -139,12 +129,28 @@ def main():
                 LOG.info("Input file appears to be plaintext.")
     except UnicodeDecodeError:
         text = None
+    return transcription, text
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Transcribe and summarize audio from an FFmpeg-compatible file.")
+    parser.add_argument("input_file", nargs="?", help="Path to file (.txt, .json, .mp4, .mkv, .mov)")
+    parser.add_argument("-t", "--transcription-only", action="store_true", help="Only Transcribe.")
+    parser.add_argument("-f", "--force", action="store_true", help="Force re-caching transcription.")
+    parser.add_argument("-p", "--prompt", default="", help="Extra prompt to add to the summary directive.")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    input_file = args.input_file if args.input_file else find_input_file()
+    base_name = os.path.basename(input_file)
+    transcription, text = read_file(input_file)
 
     if text is None and transcription is None:
         transcription = get_transcription_for_file(input_file, skip_cache=args.force)
 
     if base_name.startswith("20") and base_name[:4].isdigit() and len(base_name) > 10:
-        # OBS saves files with title like: %Y-%m-%d_%H-%M-%S
         assumed_date = ''.join(base_name[:10])
     else:
         assumed_date = datetime.fromtimestamp(os.path.getmtime(input_file)).strftime('%Y-%m-%d')
@@ -159,7 +165,6 @@ def main():
     else:
         summary = summarize(text, args.prompt)
         print(f"Summary from chatGPT:\n{summary}\n")
-
 
 if __name__ == '__main__':
     LOG.addHandler(logging.StreamHandler())
