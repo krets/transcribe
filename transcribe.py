@@ -14,6 +14,8 @@ dotenv.load_dotenv()
 
 LOG = logging.getLogger('krets')
 OPEN_AI_KEY = os.environ.get('OPENAI_API_KEY')
+OPEN_AI_MODEL = os.environ.get('OPEN_AI_MODEL', 'gpt-4o-mini')
+OPEN_AI_WHISPER_MODEL = os.environ.get('OPEN_AI_MODEL', 'whisper-1')
 
 def extract_audio(video_file):
     output_file = os.path.splitext(os.path.basename(video_file))[0] + ".mp3"
@@ -40,7 +42,7 @@ def transcribe_audio(audio_file):
     }
 
     data = {
-        'model': 'whisper-1',
+        'model': OPEN_AI_WHISPER_MODEL,
         'response_format': 'verbose_json'
     }
 
@@ -55,7 +57,7 @@ def summarize(text, extra_prompt=None):
         'Authorization': f"Bearer {OPEN_AI_KEY}"
     }
     data = {
-        'model': 'gpt-4o-mini',
+        'model': OPEN_AI_MODEL,
         'messages': [
             {
                 'role': 'system',
