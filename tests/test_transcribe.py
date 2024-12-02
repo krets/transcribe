@@ -1,5 +1,11 @@
+import os
+import sys
 from unittest.mock import patch, mock_open, MagicMock
+
+sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+
 from transcribe import read_file, extract_audio, transcribe_audio, get_transcription_for_file
+
 
 def test_read_file_json():
     with patch("builtins.open", mock_open(read_data='{"segments": [{"start": 0, "text": "Hello"}]}')) as mock_file:
