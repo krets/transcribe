@@ -166,6 +166,7 @@ def main():
         summary = summarize(text, args.prompt)
         print(f"Summary from chatGPT:\n{summary}\n")
 
+
 if __name__ == '__main__':
     LOG.addHandler(logging.StreamHandler())
     LOG.handlers[-1].setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
