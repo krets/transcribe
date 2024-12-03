@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 from transcribe import (
     read_file, extract_audio, summarize, transcribe_audio, get_transcription_for_file,
-    find_input_file
+    find_input_file, main, parse_args
 )
 
 
@@ -128,3 +128,50 @@ def test_summarize_with_extra_prompt(mock_post):
 
     assert summary == MOCK_TEST_TEXT
     mock_post.assert_called_once()
+
+def test_parse_args_no_arguments():
+    test_args = ["transcribe.py"]
+    with patch.object(sys, 'argv', test_args):
+        args = parse_args()
+        assert args.input_file is None
+        assert not args.transcription_only
+        assert not args.force
+        assert args.prompt == ""
+
+def test_parse_args_with_arguments():
+    test_args = ["transcribe.py", "input.mp4", "-t", "-f", "-p", "extra prompt"]
+    with patch.object(sys, 'argv', test_args):
+        args = parse_args()
+        assert args.input_file == "input.mp4"
+        assert args.transcription_only
+        assert args.force
+        assert args.prompt == "extra prompt"
+
+@patch("os.path.getmtime", return_value=0)
+@patch("os.path.exists", return_value=True)
+@patch("transcribe.read_file", return_value=(None, None))
+@patch("transcribe.get_transcription_for_file", return_value=MOCK_TRANSCRIPTION_OBJECT)
+@patch("transcribe.summarize", return_value="Summary")
+@patch('builtins.print')
+def test_main(mock_print, mock_summarize, mock_get_transcription, mock_read_file, mock_exists, mock_getmtime):
+    test_args = ["transcribe.py", "input.mp4"]
+    with patch.object(sys, 'argv', test_args):
+        main()
+        mock_read_file.assert_called_once_with("input.mp4")
+        mock_get_transcription.assert_called_once_with("input.mp4", skip_cache=False)
+        mock_summarize.assert_called_once()
+
+@patch("os.path.getmtime", return_value=0)
+@patch("os.path.exists", return_value=True)
+@patch("transcribe.read_file", return_value=(None, None))
+@patch("transcribe.get_transcription_for_file", return_value=MOCK_TRANSCRIPTION_OBJECT)
+@patch("transcribe.summarize", return_value="Summary")
+@patch('builtins.print')
+def test_main_transcribe_only(mock_print, mock_summarize, mock_get_transcription, mock_read_file, mock_exists, mock_getmtime):
+    test_filename = "2024-01-01_01-01-01.mp4"
+    test_args = ["transcribe.py", test_filename, "-t"]
+    with patch.object(sys, 'argv', test_args):
+        main()
+        mock_read_file.assert_called_once_with(test_filename)
+        mock_get_transcription.assert_called_once_with(test_filename, skip_cache=False)
+        mock_summarize.assert_not_called()
