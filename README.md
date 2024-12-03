@@ -13,6 +13,6 @@ Summarize a given audio/video file. This is mostly for generating meeting notes.
 
 ### Requirements 
  - `OPENAI_API_KEY` environment variable
-   - Whisper online is used for faster transcriptions
+   - The Whisper API is used for faster transcriptions
    - ChatGPT is used for Summary
  - `ffmpeg` is used to make a compressed, mono MP3 to send to OpenAI
