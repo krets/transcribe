@@ -32,8 +32,18 @@ def extract_audio(video_file):
     return output_file
 
 
+def get_audio_duration(audio_file):
+    command = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {audio_file}"
+    result = subprocess.run(command, shell=True, text=True, capture_output=True)
+    if result.returncode != 0:
+        raise ChildProcessError(f"Error running command: {command}\n{result.stderr}")
+    return float(result.stdout.strip())
+
+
 def transcribe_audio(audio_file):
-    LOG.info("Transcribing with whisper API")
+    file_size = os.path.getsize(audio_file)
+    duration = get_audio_duration(audio_file)
+    LOG.info("Transcribing with whisper API (%d bytes; %.1f seconds)", file_size, duration)
     url = 'https://api.openai.com/v1/audio/transcriptions'
     headers = {
         'Authorization': f"Bearer {OPEN_AI_KEY}"
