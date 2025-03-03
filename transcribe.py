@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 from datetime import datetime, timedelta
+from multiprocessing.util import LOGGER_NAME
 
 import dotenv
 import requests
@@ -18,18 +19,30 @@ OPEN_AI_MODEL = os.environ.get('OPEN_AI_MODEL', 'gpt-4o-mini')
 OPEN_AI_WHISPER_MODEL = os.environ.get('OPEN_AI_MODEL', 'whisper-1')
 
 
-def extract_audio(video_file):
-    output_file = os.path.splitext(os.path.basename(video_file))[0] + ".mp3"
-    if os.path.exists(output_file):
-        os.remove(output_file)
+def extract_audio(input_file):
+    base_name = os.path.splitext(os.path.basename(input_file))[0]
+    opus_file = f"{base_name}.opus"
+    ogg_file = f"{base_name}.ogg"
+    for path in [opus_file, ogg_file]:
+        if os.path.exists(path):
+            os.remove(path)
 
-    command = f"ffmpeg -i {video_file} -codec:a libmp3lame -qscale:a 5 -ac 1 -ar 22050 {output_file}"
-
-    LOG.info("Extracting audio: %s", command)
-    result = subprocess.run(command, shell=True, text=True, capture_output=True)
-    if result.returncode != 0:
-        raise ChildProcessError(f"Error running command: {command}\n{result.stderr}")
-    return output_file
+    steps = [
+        (
+            "Extracting Audio",
+            f"ffmpeg -i {input_file} -acodec libopus -b:a 16k -ac 1 -ar 16000 {opus_file}"
+        ),
+        (
+            "Copying Audio",
+            f"ffmpeg -i {opus_file} -acodec copy {ogg_file}"
+        )
+    ]
+    for msg, command in steps:
+        LOG.info(f"{msg}: {command}")
+        result = subprocess.run(command, shell=True, text=True, capture_output=True)
+        if result.returncode != 0:
+            raise ChildProcessError(f"Error running command: {command}\n{result.stderr}")
+    return ogg_file
 
 
 def get_audio_duration(audio_file):
@@ -59,8 +72,14 @@ def transcribe_audio(audio_file):
     }
 
     response = requests.post(url, headers=headers, files=files, data=data)
+    try:
+        data = response.json()
+    except json.decoder.JSONDecodeError:
+        data = None
+    if data and response.status_code < 200 or response.status_code >= 300:
+        LOG.error(data.get("error", {}).get("message", data))
     response.raise_for_status()
-    return response.json()
+    return data
 
 
 def summarize(text, extra_prompt=None):
